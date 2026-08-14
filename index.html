@@ -147,6 +147,7 @@
     margin-left: 5px;
   }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body>
 
@@ -174,7 +175,7 @@
     <textarea id="tBody" style="width:100%; max-width:500px; height:100px;"></textarea>
   </div>
   <div style="text-align:right; margin-top:10px;">
-    <button class="btn" onclick="makeTh()">送信する</button>
+    <button class="btn" onclick="makeTh()">スレッドを立てる</button>
   </div>
 </div>
 
@@ -268,6 +269,8 @@ function makeTh() {
           <span class="del-txt">[del]</span>
           <button class="btn" style="margin-left:15px; padding:2px 8px; font-size:13px;"
             onclick="saveTxt('${id}','${ttl}')">TXT保存</button>
+          <button class="btn" style="margin-left:5px; padding:2px 8px; font-size:13px;"
+            onclick="saveZip('${id}','${ttl}')">ZIP保存</button>
         </div>
         <div class="p-cont">
           ${imgHtml}
@@ -348,7 +351,7 @@ function saveTxt(id, ttl) {
   let text = `【ふたば練習保存】${ttl}\n\n`;
 
   for(let i=0; i<bodies.length; i++) {
-    const hText = heads[i].innerText.replace('TXT保存', '').trim();
+    const hText = heads[i].innerText.replace('TXT保存', '').replace('ZIP保存', '').trim();
     const bText = bodies[i].innerText;
     text += `${hText}\n${bText}\n\n`;
   }
@@ -359,6 +362,94 @@ function saveTxt(id, ttl) {
   a.download = `futaba_${ttl}.txt`;
   a.click();
   showMsg('TXT保存しました');
+}
+
+/* =========================================================
+   指定スレッド内の投稿を「見出し(.p-head)＋本文枠(.p-cont)」の
+   組として1件ずつ取り出す。スレ本文（OP）と各レスの両方を含む。
+   ========================================================= */
+function collectPostBlocks(box) {
+  const blocks = [];
+  const opHead = box.querySelector(':scope > .p-head');
+  const opCont = box.querySelector(':scope > .p-cont');
+  if (opHead && opCont) blocks.push({ head: opHead, cont: opCont });
+
+  box.querySelectorAll('.reply-box').forEach(rb => {
+    const h = rb.querySelector('.p-head');
+    const c = rb.querySelector('.p-cont');
+    if (h && c) blocks.push({ head: h, cont: c });
+  });
+
+  return blocks;
+}
+
+/* 見出しテキストから "No.000001" のレス番号部分を取り出す */
+function extractReplyNo(headEl) {
+  const m = headEl.innerText.match(/No\.(\d+)/);
+  return m ? m[1] : '000000';
+}
+
+/* =========================================================
+   指定スレッドのTXT（本文まとめ）＋画像一式をZIP保存する。
+   画像ファイル名には「image_No{レス番号}.{拡張子}」の形で
+   レス番号を埋め込み、ZIP内の画像とTXT中の該当レスを
+   番号で突き合わせられるようにする。
+   同一レスに画像が複数ある場合は末尾に _1, _2 ... を付与する。
+   ========================================================= */
+async function saveZip(id, ttl) {
+  if (typeof JSZip === 'undefined') {
+    showMsg('ZIPライブラリの読み込みに失敗しました');
+    return;
+  }
+  const box = document.getElementById(id);
+  if (!box) {
+    showMsg('スレッドが見つかりません');
+    return;
+  }
+
+  showMsg('ZIPを作成しています…');
+
+  // TXT本文はsaveTxtと同じ組み立て方に揃える
+  const bodies = box.getElementsByClassName('p-body');
+  const heads = box.getElementsByClassName('p-head');
+  let text = `【ふたば練習保存】${ttl}\n\n`;
+  for (let i = 0; i < bodies.length; i++) {
+    const hText = heads[i].innerText.replace('TXT保存', '').replace('ZIP保存', '').trim();
+    const bText = bodies[i].innerText;
+    text += `${hText}\n${bText}\n\n`;
+  }
+
+  const zip = new JSZip();
+  const folder = zip.folder(ttl || 'thread');
+  folder.file(`${ttl}.txt`, text);
+
+  const blocks = collectPostBlocks(box);
+  blocks.forEach(block => {
+    const no = extractReplyNo(block.head);
+    const imgs = block.cont.querySelectorAll('.p-thumb');
+
+    imgs.forEach((img, j) => {
+      const src = img.getAttribute('src') || '';
+      const m = src.match(/^data:image\/(\w+);base64,(.+)$/);
+      if (!m) return; // data URL形式でない画像はスキップ
+      const ext = m[1] === 'jpeg' ? 'jpg' : m[1];
+      const suffix = imgs.length > 1 ? `_${j + 1}` : '';
+      folder.file(`image_No${no}${suffix}.${ext}`, m[2], { base64: true });
+    });
+  });
+
+  try {
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `futaba_${ttl}.zip`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    showMsg('ZIP保存しました');
+  } catch (e) {
+    showMsg('ZIP作成に失敗しました');
+  }
 }
 
 function esc(str) {
