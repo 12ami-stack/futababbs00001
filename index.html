@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport"
+  content="width=device-width,initial-scale=1.0">
+<title>ふたば風練習板 - 画像対応版</title>
+<style>
+  body {
+    background: #ffffe0;
+    color: #800000;
+    font-family: sans-serif;
+    margin: 25px;
+    font-size: 18px;
+  }
+  h1 {
+    color: #e00000;
+    text-align: center;
+    font-size: 32px;
+    margin-bottom: 5px;
+  }
+  .sub-ttl {
+    text-align: center;
+    font-size: 16px;
+    color: #e00000;
+    margin-bottom: 25px;
+  }
+  .box {
+    background: #ffeedd;
+    border: 2px solid #e0a080;
+    padding: 20px;
+    max-width: 650px;
+    margin: 0 auto 30px auto;
+    font-size: 18px;
+    border-radius: 8px;
+  }
+  .form-g {
+    margin-bottom: 12px;
+  }
+  .form-g span {
+    font-weight: bold;
+  }
+  .form-g input, .form-g textarea {
+    background: #fff;
+    border: 1px solid #a0a0a0;
+    font-size: 18px;
+    padding: 8px;
+    box-sizing: border-box;
+  }
+  .btn {
+    background: #f0f0f0;
+    border: 2px solid #808080;
+    padding: 4px 12px;
+    font-size: 15px;
+    font-weight: bold;
+    cursor: pointer;
+    border-radius: 4px;
+  }
+  .toast {
+    display: none;
+    position: fixed;
+    top: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #c04040;
+    color: #fff;
+    padding: 12px 24px;
+    font-size: 18px;
+    z-index: 9999;
+    border-radius: 6px;
+  }
+  .th-box {
+    max-width: 850px;
+    margin: 30px auto;
+    border-top: 2px solid #e0a080;
+    padding-top: 25px;
+  }
+  .th-ttl {
+    color: #cc0000;
+    font-weight: bold;
+    font-size: 22px;
+  }
+  .p-head {
+    font-size: 16px;
+    color: #111111;
+    line-height: 1.6;
+  }
+  .p-name {
+    color: #117743;
+    font-weight: bold;
+    font-size: 18px;
+  }
+  /* 画像と本文のレイアウト用（回り込み） */
+  .p-cont {
+    margin: 12px 0 25px 25px;
+    overflow: hidden;
+  }
+  .p-thumb {
+    float: left;
+    margin-right: 20px;
+    margin-bottom: 10px;
+    max-width: 150px;
+    max-height: 150px;
+    border: 1px solid #800000;
+    display: block;
+  }
+  .p-body {
+    font-size: 19px;
+    color: #800000;
+    white-space: pre-wrap;
+    line-height: 1.6;
+  }
+  .quote-txt {
+    color: #789922;
+  }
+  /* レス（回り込みリセット） */
+  .reply-outer {
+    clear: both;
+    margin: 10px 0 10px 25px;
+  }
+  .reply-box {
+    background: #f0e0d6;
+    display: inline-block;
+    padding: 15px;
+    border: 1px solid #d0b0a0;
+    min-width: 450px;
+    max-width: 100%;
+    border-radius: 4px;
+  }
+  .soudane-btn {
+    color: #0000ff;
+    cursor: pointer;
+    font-size: 14px;
+    margin-left: 10px;
+    text-decoration: underline;
+  }
+  .del-txt {
+    color: #777;
+    font-size: 13px;
+    cursor: pointer;
+    margin-left: 5px;
+  }
+</style>
+</head>
+<body>
+
+<h1>二次元裏（風）練習板</h1>
+<div class="sub-ttl">としあきたちのための練習場</div>
+
+<div id="toast" class="toast"></div>
+
+<!-- スレ建てフォーム -->
+<div class="box">
+  <div class="form-g">
+    <span style="width:80px; display:inline-block;">名称</span>
+    <input type="text" id="tName" value="としあき" style="width:200px;">
+  </div>
+  <div class="form-g">
+    <span style="width:80px; display:inline-block;">題名</span>
+    <input type="text" id="tTtl" placeholder="無題" style="width:280px;">
+  </div>
+  <div class="form-g">
+    <span style="width:80px; display:inline-block;">画像</span>
+    <input type="file" id="tImg" accept="image/*" style="font-size:15px;">
+  </div>
+  <div class="form-g">
+    <span style="width:80px; display:inline-block; vertical-align:top;">本文</span>
+    <textarea id="tBody" style="width:100%; max-width:500px; height:100px;"></textarea>
+  </div>
+  <div style="text-align:right; margin-top:10px;">
+    <button class="btn" onclick="makeTh()">送信する</button>
+  </div>
+</div>
+
+<div id="thList"></div>
+
+<script>
+const counts = {};
+
+function getDt() {
+  const d = new Date();
+  const sy = String(d.getFullYear()).slice(-2);
+  const sm = String(d.getMonth()+1).padStart(2,'0');
+  const sd = String(d.getDate()).padStart(2,'0');
+  const sh = String(d.getHours()).padStart(2,'0');
+  const mn = String(d.getMinutes()).padStart(2,'0');
+  const ss = String(d.getSeconds()).padStart(2,'0');
+  return `${sy}/${sm}/${sd}(金)${sh}:${mn}:${ss}`;
+}
+
+function showMsg(msg) {
+  const t = document.getElementById('toast');
+  t.innerText = msg;
+  t.style.display = 'block';
+  setTimeout(() => { t.style.display = 'none'; }, 1500);
+}
+
+function parseBody(str) {
+  return str.split('\n').map(line => {
+    const escLine = esc(line);
+    if (escLine.startsWith('&gt;')) {
+      return `<span class="quote-txt">${escLine}</span>`;
+    }
+    return escLine;
+  }).join('\n');
+}
+
+function upSou(btnId) {
+  const btn = document.getElementById(btnId);
+  let c = parseInt(btn.getAttribute('data-cnt')) || 0;
+  c++;
+  btn.setAttribute('data-cnt', c);
+  btn.innerText = `そうだねx${c}`;
+}
+
+// 画像のBase64化関数
+function getImgSrc(fileInput, callback) {
+  const file = fileInput.files[0];
+  if (!file) {
+    callback('');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = function(e) { callback(e.target.result); };
+  reader.readAsDataURL(file);
+}
+
+// スレ建て
+function makeTh() {
+  let ttl = document.getElementById('tTtl').value.trim();
+  let name = document.getElementById('tName').value.trim();
+  const body = document.getElementById('tBody').value.trim();
+  const fileInput = document.getElementById('tImg');
+
+  if (!body) {
+    showMsg('本文を入力してください');
+    return;
+  }
+  if (!name) name = 'としあき';
+  if (!ttl) ttl = '無題';
+
+  const id = 'th_' + Date.now();
+  counts[id] = 0;
+  const sId = 's_' + id + '_1';
+
+  getImgSrc(fileInput, function(imgSrc) {
+    const imgHtml = imgSrc ? `<img src="${imgSrc}" class="p-thumb">` : '';
+    
+    const html = `
+      <div class="th-box" id="${id}">
+        <div class="p-head">
+          <span class="th-ttl">【${ttl}】</span>
+          <span class="p-name">${name}</span>
+          <span>${getDt()} No.000001</span>
+          <span id="${sId}" data-cnt="0" class="soudane-btn" onclick="upSou('${sId}')">そうだね</span>
+          <span class="del-txt">[del]</span>
+          <button class="btn" style="margin-left:15px; padding:2px 8px; font-size:13px;"
+            onclick="saveTxt('${id}','${ttl}')">TXT保存</button>
+        </div>
+        <div class="p-cont">
+          ${imgHtml}
+          <div class="p-body">${parseBody(body)}</div>
+        </div>
+        
+        <div id="p_${id}"></div>
+
+        <!-- 返信欄 -->
+        <div style="margin:25px 0 0 25px; padding:15px; background:#f4ebd9; display:inline-block; border-radius:6px; clear:both;">
+          <span style="font-size:16px; font-weight:bold;">返信欄:</span>
+          <input type="text" id="rNm_${id}" value="としあき" style="width:110px; font-size:16px; padding:4px;">
+          <input type="text" id="rBd_${id}" placeholder="レス本文" style="width:220px; font-size:16px; padding:4px;">
+          <input type="file" id="rIm_${id}" accept="image/*" style="font-size:14px; width:170px;">
+          <button class="btn" onclick="addRpl('${id}')">返信</button>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('thList').insertAdjacentHTML('afterbegin', html);
+    document.getElementById('tTtl').value = '';
+    document.getElementById('tBody').value = '';
+    fileInput.value = ''; // ファイルリセット
+    showMsg('スレッドを作成しました');
+  });
+}
+
+// レス追加
+function addRpl(id) {
+  let name = document.getElementById(`rNm_${id}`).value.trim();
+  const body = document.getElementById(`rBd_${id}`).value.trim();
+  const fileInput = document.getElementById(`rIm_${id}`);
+
+  if (!body) {
+    showMsg('本文がありません');
+    return;
+  }
+  if (!name) name = 'としあき';
+
+  counts[id]++;
+  const no = String(1 + counts[id]).padStart(2, '0');
+  const sId = `s_${id}_${no}`;
+
+  getImgSrc(fileInput, function(imgSrc) {
+    const imgHtml = imgSrc ? `<img src="${imgSrc}" class="p-thumb">` : '';
+
+    const html = `
+      <div class="reply-outer">
+        <div class="reply-box">
+          <div class="p-head">
+            <span class="p-name">${name}</span>
+            <span>${getDt()} No.0000${no}</span>
+            <span id="${sId}" data-cnt="0" class="soudane-btn" onclick="upSou('${sId}')">そうだね</span>
+            <span class="del-txt">[del]</span>
+          </div>
+          <div class="p-cont" style="margin:8px 0 0 0;">
+            ${imgHtml}
+            <div class="p-body">${parseBody(body)}</div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.getElementById(`p_${id}`).insertAdjacentHTML('beforeend', html);
+    document.getElementById(`rBd_${id}`).value = '';
+    fileInput.value = ''; // ファイルリセット
+    showMsg('レスを送信しました');
+  });
+}
+
+// TXT保存
+function saveTxt(id, ttl) {
+  const box = document.getElementById(id);
+  const bodies = box.getElementsByClassName('p-body');
+  const heads = box.getElementsByClassName('p-head');
+  let text = `【ふたば練習保存】${ttl}\n\n`;
+
+  for(let i=0; i<bodies.length; i++) {
+    const hText = heads[i].innerText.replace('TXT保存', '').trim();
+    const bText = bodies[i].innerText;
+    text += `${hText}\n${bText}\n\n`;
+  }
+
+  const blob = new Blob([text], {type: 'text/plain'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `futaba_${ttl}.txt`;
+  a.click();
+  showMsg('TXT保存しました');
+}
+
+function esc(str) {
+  return str
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;").replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+</script>
+</body>
+</html>
