@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport"
   content="width=device-width,initial-scale=1.0">
-<title>ふたば風練習板 - 画像対応版</title>
+<title>ふたば風練習板 - 画像メイン対応版</title>
 <style>
   body {
     background: #ffffe0;
@@ -90,19 +90,26 @@
     font-weight: bold;
     font-size: 18px;
   }
-  /* 画像と本文のレイアウト用（回り込み） */
   .p-cont {
     margin: 12px 0 25px 25px;
     overflow: hidden;
   }
+  /* サムネイル初期値 */
   .p-thumb {
     float: left;
     margin-right: 20px;
     margin-bottom: 10px;
-    max-width: 150px;
-    max-height: 150px;
     border: 1px solid #800000;
     display: block;
+    cursor: pointer;
+    max-width: 150px;
+    max-height: 150px;
+    transition: max-width 0.2s, max-height 0.2s;
+  }
+  /* 元画像サイズまで解放（画面幅は超えないように制限） */
+  .p-thumb.expanded {
+    max-width: 100%;
+    max-height: none;
   }
   .p-body {
     font-size: 19px;
@@ -113,7 +120,6 @@
   .quote-txt {
     color: #789922;
   }
-  /* レス（回り込みリセット） */
   .reply-outer {
     clear: both;
     margin: 10px 0 10px 25px;
@@ -196,6 +202,7 @@ function showMsg(msg) {
 }
 
 function parseBody(str) {
+  if (!str) return '';
   return str.split('\n').map(line => {
     const escLine = esc(line);
     if (escLine.startsWith('&gt;')) {
@@ -213,16 +220,19 @@ function upSou(btnId) {
   btn.innerText = `そうだねx${c}`;
 }
 
-// 画像のBase64化関数
+function toggleExpand(img) {
+  img.classList.toggle('expanded');
+}
+
 function getImgSrc(fileInput, callback) {
-  const file = fileInput.files[0];
-  if (!file) {
+  const file = fileInput.files;
+  if (!file || file.length === 0) {
     callback('');
     return;
   }
   const reader = new FileReader();
   reader.onload = function(e) { callback(e.target.result); };
-  reader.readAsDataURL(file);
+  reader.readAsDataURL(file[0]);
 }
 
 // スレ建て
@@ -232,8 +242,9 @@ function makeTh() {
   const body = document.getElementById('tBody').value.trim();
   const fileInput = document.getElementById('tImg');
 
-  if (!body) {
-    showMsg('本文を入力してください');
+  // 画像も本文もない場合は弾く
+  if (!body && fileInput.files.length === 0) {
+    showMsg('本文か画像を入力してください');
     return;
   }
   if (!name) name = 'としあき';
@@ -244,7 +255,8 @@ function makeTh() {
   const sId = 's_' + id + '_1';
 
   getImgSrc(fileInput, function(imgSrc) {
-    const imgHtml = imgSrc ? `<img src="${imgSrc}" class="p-thumb">` : '';
+    const imgHtml = imgSrc ? 
+      `<img src="${imgSrc}" class="p-thumb" onclick="toggleExpand(this)">` : '';
     
     const html = `
       <div class="th-box" id="${id}">
@@ -278,7 +290,7 @@ function makeTh() {
     document.getElementById('thList').insertAdjacentHTML('afterbegin', html);
     document.getElementById('tTtl').value = '';
     document.getElementById('tBody').value = '';
-    fileInput.value = ''; // ファイルリセット
+    fileInput.value = '';
     showMsg('スレッドを作成しました');
   });
 }
@@ -289,8 +301,9 @@ function addRpl(id) {
   const body = document.getElementById(`rBd_${id}`).value.trim();
   const fileInput = document.getElementById(`rIm_${id}`);
 
-  if (!body) {
-    showMsg('本文がありません');
+  // 返信も画像か本文のどちらかがあればOK
+  if (!body && fileInput.files.length === 0) {
+    showMsg('本文か画像がありません');
     return;
   }
   if (!name) name = 'としあき';
@@ -300,7 +313,8 @@ function addRpl(id) {
   const sId = `s_${id}_${no}`;
 
   getImgSrc(fileInput, function(imgSrc) {
-    const imgHtml = imgSrc ? `<img src="${imgSrc}" class="p-thumb">` : '';
+    const imgHtml = imgSrc ? 
+      `<img src="${imgSrc}" class="p-thumb" onclick="toggleExpand(this)">` : '';
 
     const html = `
       <div class="reply-outer">
@@ -321,7 +335,7 @@ function addRpl(id) {
 
     document.getElementById(`p_${id}`).insertAdjacentHTML('beforeend', html);
     document.getElementById(`rBd_${id}`).value = '';
-    fileInput.value = ''; // ファイルリセット
+    fileInput.value = '';
     showMsg('レスを送信しました');
   });
 }
